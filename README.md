@@ -5,16 +5,22 @@ A very simple library for proxying calls between an owner document and
 a worker.
 
 
-Installing
-----------
+Vanilla JS example
+------------------
+
+See the `examples` directory for a working example.
+
+
+Installing with NPM
+-------------------
 
 ```bash
 npm install --save workerproxy
 ```
 
 
-Example
--------
+CommonJS example
+----------------
 
 To call functions in a worker, wrap it with the `workerproxy` package,
 then call methods on the returned object as you normally would. Note
