@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<html>
+	<head><title>Worker Proxy example</title></head>
+	<body>
+		<script src="../index.js"></script>
+		<script>
+			var worker = new Worker('worker.js');
+			var api = createWorkerProxy(worker);
+			api.greet('World', function (err, message) {
+				var p = document.createElement('p');
+				p.textContent = message;
+				document.body.appendChild(p);
+			});
+		</script>
+	</body>
+</html>

@@ -4,6 +4,7 @@
   "description": "Proxies function calls to web workers.",
   "author": "Blixt <me@blixt.org>",
   "license": "MIT",
+  "files": ["index.js"],
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
