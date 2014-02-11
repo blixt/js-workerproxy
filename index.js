@@ -1,62 +1,84 @@
 ;(function (commonjs) {
   function receiveCallsFromOwner(functions) {
+    function createCallback(id) {
+      var fn = function () {
+        var args = Array.prototype.slice.call(arguments);
+        self.postMessage({callResponse: id, arguments: args});
+      };
+
+      fn.transfer = function () {
+        var args = Array.prototype.slice.call(arguments),
+            transferList = args.shift();
+        self.postMessage({callResponse: id, arguments: args}, transferList);
+      };
+
+      return fn;
+    }
+
     self.addEventListener('message', function (e) {
       var message = e.data;
 
       if (message.call) {
-        var requestId = message.requestId;
+        var callId = message.callId;
 
         // Find the function to be called.
         var fn = functions[message.call];
         if (!fn) {
           self.postMessage({
-            callResponse: requestId,
+            callResponse: callId,
             arguments: ['That function does not exist']
           });
           return;
         }
 
         var args = message.arguments || [];
-        args.push(function () {
-          var args = Array.prototype.slice.call(arguments);
-          self.postMessage({callResponse: requestId, arguments: args});
-        });
+        args.push(createCallback(callId));
         fn.apply(functions, args);
       }
     });
   }
 
   function sendCallsToWorker(worker) {
-    var callbacks = {};
+    var callbacks = {}, nextCallId = 1;
+
+    function getHandler(_, name) {
+      if (this[name]) return this[name];
+
+      var fn = this[name] = function () {
+        var args = Array.prototype.slice.call(arguments);
+        sendCall(name, args);
+      };
+
+      fn.transfer = function () {
+        var args = Array.prototype.slice.call(arguments),
+            transferList = args.shift();
+        sendCall(name, args, transferList);
+      };
+
+      return fn;
+    }
+
+    function sendCall(name, args, opt_transferList) {
+      var id = nextCallId++;
+
+      if (typeof args[args.length - 1] == 'function') {
+        callbacks[id] = args.pop();
+      }
+
+      worker.postMessage({callId: id, call: name, arguments: args}, opt_transferList);
+    }
 
     worker.addEventListener('message', function (e) {
       var message = e.data;
 
       if (message.callResponse) {
-        var requestId = message.callResponse;
-        if (callbacks[requestId]) {
-          callbacks[requestId].apply(null, message.arguments);
-          delete callbacks[requestId];
+        var callId = message.callResponse;
+        if (callbacks[callId]) {
+          callbacks[callId].apply(null, message.arguments);
+          delete callbacks[callId];
         }
       }
     });
-
-    var nextRequestId = 1;
-
-    var getHandler = function (_, name) {
-      if (this[name]) return this[name];
-
-      return this[name] = function () {
-        var id = nextRequestId++,
-            args = Array.prototype.slice.call(arguments);
-
-        if (typeof args[args.length - 1] == 'function') {
-          callbacks[id] = args.pop();
-        }
-
-        worker.postMessage({requestId: id, call: name, arguments: args});
-      };
-    };
 
     if (Proxy.create) {
       return Proxy.create({get: getHandler});

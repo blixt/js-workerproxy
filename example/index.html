@@ -6,10 +6,17 @@
 		<script>
 			var worker = new Worker('worker.js');
 			var api = createWorkerProxy(worker);
+
 			api.greet('World', function (err, message) {
 				var p = document.createElement('p');
 				p.textContent = message;
 				document.body.appendChild(p);
+			});
+
+			var buffer = new ArrayBuffer(100);
+			api.addToFirstIndexInBuffer.transfer([buffer], buffer, 10, function (err, buffer) {
+				var array = new Uint8Array(buffer);
+				console.log('Got buffer back:', array[0]);
 			});
 		</script>
 	</body>
