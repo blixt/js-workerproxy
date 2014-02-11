@@ -1,10 +1,12 @@
 {
   "name": "workerproxy",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Proxies function calls to web workers.",
   "author": "Blixt <me@blixt.org>",
   "license": "MIT",
-  "files": ["index.js"],
+  "files": [
+    "index.js"
+  ],
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
@@ -13,8 +15,6 @@
     "type": "git",
     "url": "https://github.com/blixt/js-workerproxy.git"
   },
-  "dependencies": {
-  },
-  "devDependencies": {
-  }
+  "dependencies": {},
+  "devDependencies": {}
 }
