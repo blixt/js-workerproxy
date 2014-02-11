@@ -34,8 +34,10 @@
 
       if (message.callResponse) {
         var requestId = message.callResponse;
-        callbacks[requestId].apply(null, message.arguments);
-        delete callbacks[requestId];
+        if (callbacks[requestId]) {
+          callbacks[requestId].apply(null, message.arguments);
+          delete callbacks[requestId];
+        }
       }
     });
 
@@ -47,7 +49,11 @@
       return this[name] = function () {
         var id = nextRequestId++,
             args = Array.prototype.slice.call(arguments);
-        callbacks[id] = args.pop();
+
+        if (typeof args[args.length - 1] == 'function') {
+          callbacks[id] = args.pop();
+        }
+
         worker.postMessage({requestId: id, call: name, arguments: args});
       };
     };
