@@ -42,7 +42,9 @@
     var nextRequestId = 1;
 
     var getHandler = function (_, name) {
-      return function () {
+      if (this[name]) return this[name];
+
+      return this[name] = function () {
         var id = nextRequestId++,
             args = Array.prototype.slice.call(arguments);
         callbacks[id] = args.pop();
