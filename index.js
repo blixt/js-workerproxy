@@ -106,4 +106,4 @@
   } else {
     (this.window || this.self).createWorkerProxy = createWorkerProxy;
   }
-})(this.module && typeof module.exports == 'object');
+})(typeof module == 'object' && typeof module.exports == 'object');
