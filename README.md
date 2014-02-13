@@ -5,12 +5,6 @@ A very simple library for proxying calls between an owner document and
 a worker.
 
 
-Vanilla JS example
-------------------
-
-See the `examples` directory for a working example.
-
-
 Installing with NPM
 -------------------
 
@@ -19,8 +13,15 @@ npm install --save workerproxy
 ```
 
 
-CommonJS example
-----------------
+Examples
+--------
+
+### Vanilla JavaScript
+
+See the `examples` directory for a working example.
+
+
+### CommonJS
 
 To call functions in a worker, wrap it with the `workerproxy` package,
 then call methods on the returned object as you normally would. Note
@@ -59,6 +60,8 @@ error callback instead of throwing the error in the worker.
 **Example using `autoCatch`:**
 
 ```js
+// worker.js
+
 var store = {};
 
 var functions = {
@@ -76,5 +79,9 @@ var functions = {
   }
 };
 
+// CommonJS:
 require('workerproxy')(functions, {autoCatch: true});
+
+// Vanilla JavaScript:
+createWorkerProxy(functions, {autoCatch: true});
 ```
