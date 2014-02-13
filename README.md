@@ -49,6 +49,42 @@ require('workerproxy')({
 ```
 
 
+### Transferable objects
+
+This library also supports transferable objects both ways. To mark an
+object for transfer, call the `transfer` method on the function that
+you would normally call (the method on the proxy for owner→worker and
+the callback for worker→owner). Then pass in the list of objects that
+you want to mark as the first argument, followed by the arguments you
+would normally pass in.
+
+Here's a short example:
+
+```js
+var api = require('workerproxy')(new Worker('worker.js'));
+
+var buffer = new ArrayBuffer(100);
+api.fillBuffer.transfer([buffer], buffer, function (err, buffer) {
+  var array = new Uint8Array(buffer);
+  console.log('Got buffer back:', array);
+});
+```
+
+The `worker.js` file would look like this:
+
+```js
+require('workerproxy')({
+  fillBuffer: function (buffer, callback) {
+    var array = new Uint8Array(buffer);
+    for (var i = 0; i < array.length; i++) {
+      array[i] = Math.random() * 255;
+    }
+    callback.transfer([buffer], null, buffer);
+  }
+});
+```
+
+
 Options
 -------
 
