@@ -18,7 +18,7 @@ Examples
 
 ### Vanilla JavaScript
 
-See the `examples` directory for a working example.
+See the `example` directory for a working example.
 
 
 ### CommonJS
