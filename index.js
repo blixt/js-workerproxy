@@ -39,12 +39,14 @@
   }
 
   function sendCallsToWorker(worker) {
-    var callbacks = {}, nextCallId = 1;
+    var cache = {},
+        callbacks = {},
+        nextCallId = 1;
 
     function getHandler(_, name) {
-      if (this[name]) return this[name];
+      if (cache[name]) return cache[name];
 
-      var fn = this[name] = function () {
+      var fn = cache[name] = function () {
         var args = Array.prototype.slice.call(arguments);
         sendCall(name, args);
       };
@@ -94,7 +96,7 @@
    * can be called inside the worker.
    */
   function createWorkerProxy(workerOrFunctions) {
-    if (this.Worker && (workerOrFunctions instanceof Worker)) {
+    if (typeof Worker != 'undefined' && (workerOrFunctions instanceof Worker)) {
       return sendCallsToWorker(workerOrFunctions);
     } else {
       receiveCallsFromOwner(workerOrFunctions);
@@ -104,6 +106,15 @@
   if (commonjs) {
     module.exports = createWorkerProxy;
   } else {
-    (this.window || this.self).createWorkerProxy = createWorkerProxy;
+    var scope;
+    if (typeof global != 'undefined') {
+      scope = global;
+    } else if (typeof window != 'undefined') {
+      scope = window;
+    } else if (typeof self != 'undefined') {
+      scope = self;
+    }
+
+    scope.createWorkerProxy = createWorkerProxy;
   }
-})(typeof module == 'object' && typeof module.exports == 'object');
+})(typeof module != 'undefined' && module.exports);
