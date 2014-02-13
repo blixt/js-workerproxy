@@ -46,3 +46,35 @@ require('workerproxy')({
   }
 });
 ```
+
+
+Options
+-------
+
+### `autoCatch` (default `false`)
+
+Catch errors in proxied functions and automatically respond with an
+error callback instead of throwing the error in the worker.
+
+**Example using `autoCatch`:**
+
+```js
+var store = {};
+
+var functions = {
+  get: function (key, callback) {
+    if (!store.hasOwnProperty(key)) throw new Error('Key not found');
+    callback(null, store[key]);
+  },
+  set: function (key, value, callback) {
+    if (key in store && !store.hasOwnProperty(key)) {
+      throw new Error('Invalid key');
+    }
+
+    store[key] = value;
+    callback(null);
+  }
+};
+
+require('workerproxy')(functions, {autoCatch: true});
+```

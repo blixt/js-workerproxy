@@ -1,5 +1,13 @@
 ;(function (commonjs) {
-  function receiveCallsFromOwner(functions) {
+  function errorObject(error) {
+    return {
+      name: error.name,
+      message: error.message,
+      stack: error.stack
+    };
+  }
+
+  function receiveCallsFromOwner(functions, options) {
     function createCallback(id) {
       var fn = function () {
         var args = Array.prototype.slice.call(arguments);
@@ -26,19 +34,29 @@
         if (!fn) {
           self.postMessage({
             callResponse: callId,
-            arguments: ['That function does not exist']
+            arguments: [errorObject(new Error('That function does not exist'))]
           });
           return;
         }
 
         var args = message.arguments || [];
-        args.push(createCallback(callId));
-        fn.apply(functions, args);
+        var callback = createCallback(callId)
+        args.push(callback);
+
+        if (options.catchErrors) {
+          try {
+            fn.apply(functions, args);
+          } catch (e) {
+            callback(errorObject(e));
+          }
+        } else {
+          fn.apply(functions, args);
+        }
       }
     });
   }
 
-  function sendCallsToWorker(worker) {
+  function sendCallsToWorker(worker, options) {
     var cache = {},
         callbacks = {},
         nextCallId = 1;
@@ -95,11 +113,25 @@
    * Call this function with either a Worker instance or a map of functions that
    * can be called inside the worker.
    */
-  function createWorkerProxy(workerOrFunctions) {
+  function createWorkerProxy(workerOrFunctions, opt_options) {
+    var options = {
+      // Catch errors and automatically respond with an error callback. Off by
+      // default since it breaks standard behavior.
+      catchErrors: false
+    };
+
+    if (opt_options) {
+      for (var key in opt_options) {
+        if (!(key in options)) continue;
+        options[key] = opt_options[key];
+      }
+    }
+    Object.freeze(options);
+
     if (typeof Worker != 'undefined' && (workerOrFunctions instanceof Worker)) {
-      return sendCallsToWorker(workerOrFunctions);
+      return sendCallsToWorker(workerOrFunctions, options);
     } else {
-      receiveCallsFromOwner(workerOrFunctions);
+      receiveCallsFromOwner(workerOrFunctions, options);
     }
   }
 
