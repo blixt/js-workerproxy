@@ -5,7 +5,13 @@
 		<script src="../index.js"></script>
 		<script>
 			var worker = new Worker('worker.js');
-			var api = createWorkerProxy(worker);
+
+			// The list of function names is not necessary
+			// if Proxy is supported.
+			var api = createWorkerProxy(worker, {functionNames: [
+				'addToFirstIndexInBuffer',
+				'greet'
+			]});
 
 			api.greet('World', function (err, message) {
 				var p = document.createElement('p');
