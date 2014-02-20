@@ -8,6 +8,13 @@
   }
 
   function receiveCallsFromOwner(functions, options) {
+    if (typeof Proxy == 'undefined') {
+      // Let the other side know about our functions if they can't use Proxy.
+      var names = [];
+      for (var name in functions) names.push(name);
+      self.postMessage({functionNames: names});
+    }
+
     function createCallback(id) {
       var fn = function () {
         var args = Array.prototype.slice.call(arguments);
@@ -59,7 +66,16 @@
   function sendCallsToWorker(worker, options) {
     var cache = {},
         callbacks = {},
-        nextCallId = 1;
+        nextCallId = 1,
+        fakeProxy;
+
+    if (typeof Proxy == 'undefined') {
+      // If we have no Proxy support, we have to pre-define all the functions.
+      fakeProxy = {};
+      options.functionNames.forEach(function (name) {
+        fakeProxy[name] = getHandler(null, name);
+      });
+    }
 
     function getHandler(_, name) {
       if (cache[name]) return cache[name];
@@ -97,15 +113,19 @@
           callbacks[callId].apply(null, message.arguments);
           delete callbacks[callId];
         }
+      } else if (message.functionNames) {
+        message.functionNames.forEach(function (name) {
+          fakeProxy[name] = getHandler(null, name);
+        });
       }
     });
 
-    if (Proxy.create) {
+    if (typeof Proxy == 'undefined') {
+      return fakeProxy;
+    } else if (Proxy.create) {
       return Proxy.create({get: getHandler});
-    } else if (Proxy) {
-      return new Proxy({}, {get: getHandler});
     } else {
-      throw new Error('Proxy support required');
+      return new Proxy({}, {get: getHandler});
     }
   }
 
@@ -117,7 +137,12 @@
     var options = {
       // Catch errors and automatically respond with an error callback. Off by
       // default since it breaks standard behavior.
-      catchErrors: false
+      catchErrors: false,
+      // A list of functions that can be called. This list will be used to make
+      // the proxy functions available when Proxy is not supported. Note that
+      // this is generally not needed since the worker will also publish its
+      // known functions.
+      functionNames: []
     };
 
     if (opt_options) {
