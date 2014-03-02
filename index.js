@@ -66,8 +66,11 @@
   function sendCallsToWorker(worker, options) {
     var cache = {},
         callbacks = {},
+        timers,
         nextCallId = 1,
         fakeProxy;
+
+    if (options.timeCalls) timers = {};
 
     if (typeof Proxy == 'undefined') {
       // If we have no Proxy support, we have to pre-define all the functions.
@@ -101,6 +104,12 @@
         callbacks[id] = args.pop();
       }
 
+      if (options.timeCalls) {
+        var timerId = name + '(' + args + ')';
+        timers[id] = timerId;
+        console.time(timerId);
+      }
+
       worker.postMessage({callId: id, call: name, arguments: args}, opt_transferList);
     }
 
@@ -109,9 +118,15 @@
 
       if (message.callResponse) {
         var callId = message.callResponse;
+
         if (callbacks[callId]) {
           callbacks[callId].apply(null, message.arguments);
           delete callbacks[callId];
+        }
+
+        if (options.timeCalls && timers[callId]) {
+          console.timeEnd(timers[callId]);
+          delete timers[callId];
         }
       } else if (message.functionNames) {
         message.functionNames.forEach(function (name) {
@@ -142,7 +157,9 @@
       // the proxy functions available when Proxy is not supported. Note that
       // this is generally not needed since the worker will also publish its
       // known functions.
-      functionNames: []
+      functionNames: [],
+      // Call console.time and console.timeEnd for calls sent though the proxy.
+      timeCalls: false
     };
 
     if (opt_options) {
