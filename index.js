@@ -68,19 +68,21 @@
         callbacks = {},
         timers,
         nextCallId = 1,
-        fakeProxy;
+        fakeProxy,
+        pendingCalls = 0;
 
     if (options.timeCalls) timers = {};
 
     if (typeof Proxy == 'undefined') {
       // If we have no Proxy support, we have to pre-define all the functions.
-      fakeProxy = {};
+      fakeProxy = {pendingCalls: 0};
       options.functionNames.forEach(function (name) {
         fakeProxy[name] = getHandler(null, name);
       });
     }
 
     function getHandler(_, name) {
+      if (name == 'pendingCalls') return pendingCalls;
       if (cache[name]) return cache[name];
 
       var fn = cache[name] = function () {
@@ -110,6 +112,8 @@
         console.time(timerId);
       }
 
+      pendingCalls++;
+      if (fakeProxy) fakeProxy.pendingCalls = pendingCalls;
       worker.postMessage({callId: id, call: name, arguments: args}, opt_transferList);
     }
 
@@ -118,6 +122,8 @@
 
       if (message.callResponse) {
         var callId = message.callResponse;
+        pendingCalls--;
+        if (fakeProxy) fakeProxy.pendingCalls = pendingCalls;
 
         if (callbacks[callId]) {
           callbacks[callId].apply(null, message.arguments);
