@@ -63,14 +63,19 @@
     });
   }
 
-  function sendCallsToWorker(worker, options) {
+  function sendCallsToWorker(workers, options) {
     var cache = {},
         callbacks = {},
         timers,
         nextCallId = 1,
         fakeProxy,
-        pendingCalls = 0;
+        pendingCalls = 0,
+        queue = [];
 
+    // Create an array of booleans for the availability of each worker.
+    var available = workers.map(function () { return true; });
+
+    // Each individual call gets a timer if timing calls.
     if (options.timeCalls) timers = {};
 
     if (typeof Proxy == 'undefined') {
@@ -87,59 +92,111 @@
 
       var fn = cache[name] = function () {
         var args = Array.prototype.slice.call(arguments);
-        sendCall(name, args);
+        queueCall(name, args);
       };
 
+      // Sends the same call to all workers.
+      fn.broadcast = function () {
+        var args = Array.prototype.slice.call(arguments);
+        for (var i = 0; i < workers.length; i++) {
+          pendingCalls++;
+          sendCall(i, name, args);
+        }
+        if (fakeProxy) fakeProxy.pendingCalls = pendingCalls;
+      };
+
+      // Marks the objects in the first argument (array) as transferable.
       fn.transfer = function () {
         var args = Array.prototype.slice.call(arguments),
             transferList = args.shift();
-        sendCall(name, args, transferList);
+        queueCall(name, args, transferList);
       };
 
       return fn;
     }
 
-    function sendCall(name, args, opt_transferList) {
+    function flushQueue() {
+      if (!queue.length) return;
+
+      for (var i = 0; i < workers.length; i++) {
+        if (!available[i]) continue;
+
+        // A worker is available.
+        var params = queue.shift();
+        sendCall(i, params[0], params[1], params[2]);
+
+        if (!queue.length) return;
+      }
+    }
+
+    function queueCall(name, args, opt_transferList) {
+      pendingCalls++;
+      if (fakeProxy) fakeProxy.pendingCalls = pendingCalls;
+      queue.push([name, args, opt_transferList]);
+      flushQueue();
+    }
+
+    function sendCall(workerIndex, name, args, opt_transferList) {
+      // Get the worker and mark it as unavailable.
+      available[workerIndex] = false;
+      var worker = workers[workerIndex];
+
       var id = nextCallId++;
 
-      if (typeof args[args.length - 1] == 'function') {
-        callbacks[id] = args.pop();
+      // If the last argument is a function, assume it's the callback.
+      var maybeCb = args[args.length - 1];
+      if (typeof maybeCb == 'function') {
+        callbacks[id] = maybeCb;
+        args = args.slice(0, -1);
       }
 
+      // If specified, time calls using the console.time interface.
       if (options.timeCalls) {
-        var timerId = name + '(' + args + ')';
+        var timerId = name + '(' + args.join(', ') + ')';
         timers[id] = timerId;
         console.time(timerId);
       }
 
-      pendingCalls++;
-      if (fakeProxy) fakeProxy.pendingCalls = pendingCalls;
       worker.postMessage({callId: id, call: name, arguments: args}, opt_transferList);
     }
 
-    worker.addEventListener('message', function (e) {
+    function listener(e) {
+      var workerIndex = workers.indexOf(this);
       var message = e.data;
 
       if (message.callResponse) {
         var callId = message.callResponse;
+
         pendingCalls--;
         if (fakeProxy) fakeProxy.pendingCalls = pendingCalls;
 
+        // Call the callback registered for this call (if any).
         if (callbacks[callId]) {
           callbacks[callId].apply(null, message.arguments);
           delete callbacks[callId];
         }
 
+        // Report timing, if that option is enabled.
         if (options.timeCalls && timers[callId]) {
           console.timeEnd(timers[callId]);
           delete timers[callId];
         }
+
+        // Make the worker available to handle more calls.
+        available[workerIndex] = true;
+        flushQueue();
       } else if (message.functionNames) {
+        // Received a list of available functions. Only useful for fake proxy.
         message.functionNames.forEach(function (name) {
           fakeProxy[name] = getHandler(null, name);
         });
       }
-    });
+    }
+
+    // Listen to messages from all the workers.
+    for (var i = 0; i < workers.length; i++) {
+      workers[i].addEventListener('message', listener);
+    }
 
     if (typeof Proxy == 'undefined') {
       return fakeProxy;
@@ -151,10 +208,10 @@
   }
 
   /**
-   * Call this function with either a Worker instance or a map of functions that
-   * can be called inside the worker.
+   * Call this function with either a Worker instance, a list of them, or a map
+   * of functions that can be called inside the worker.
    */
-  function createWorkerProxy(workerOrFunctions, opt_options) {
+  function createWorkerProxy(workersOrFunctions, opt_options) {
     var options = {
       // Catch errors and automatically respond with an error callback. Off by
       // default since it breaks standard behavior.
@@ -176,10 +233,15 @@
     }
     Object.freeze(options);
 
-    if (typeof Worker != 'undefined' && (workerOrFunctions instanceof Worker)) {
-      return sendCallsToWorker(workerOrFunctions, options);
+    // Ensure that we have an array of workers (even if only using one worker).
+    if (typeof Worker != 'undefined' && (workersOrFunctions instanceof Worker)) {
+      workersOrFunctions = [workersOrFunctions];
+    }
+
+    if (Array.isArray(workersOrFunctions)) {
+      return sendCallsToWorker(workersOrFunctions, options);
     } else {
-      receiveCallsFromOwner(workerOrFunctions, options);
+      receiveCallsFromOwner(workersOrFunctions, options);
     }
   }
 
