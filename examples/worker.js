@@ -7,6 +7,12 @@ function addToFirstIndexInBuffer(buffer, howMuch, callback) {
   callback.transfer([buffer], null, buffer);
 }
 
+function answerTheUltimateQuestionOfLifeTheUniverseAndEverything(callback) {
+  setTimeout(function () {
+    callback(null, 42);
+  }, 1000 + Math.random() * 4000);
+}
+
 function greet(name, callback) {
   callback(null, 'Hello, ' + name + '!');
 }
