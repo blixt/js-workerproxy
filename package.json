@@ -1,6 +1,6 @@
 {
   "name": "workerproxy",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "description": "Proxies function calls to web workers.",
   "author": "Blixt <me@blixt.org>",
   "license": "MIT",
