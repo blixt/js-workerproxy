@@ -4,7 +4,7 @@
 	<body>
 		<script src="../index.js"></script>
 		<script>
-			var worker = new Worker('worker.js');
+			var worker = new Worker('transfer-worker.js');
 
 			// The list of function names is not necessary if Proxy is supported.
 			var api = createWorkerProxy(worker, {functionNames: ['addToFirstIndexInBuffer']});

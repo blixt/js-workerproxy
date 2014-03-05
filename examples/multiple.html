@@ -7,13 +7,12 @@
 			// Spin up three workers to do our dirty work. Try more
 			// or less to see the difference.
 			var workers = [
-				new Worker('worker.js'),
-				new Worker('worker.js'),
-				new Worker('worker.js')
+				new Worker('multiple-worker.js'),
+				new Worker('multiple-worker.js'),
+				new Worker('multiple-worker.js')
 			];
 
-			// The list of function names is not necessary
-			// if Proxy is supported.
+			// The list of function names is not necessary if Proxy is supported.
 			var api = createWorkerProxy(workers, {functionNames: [
 				'answerTheUltimateQuestionOfLifeTheUniverseAndEverything'
 			]});
