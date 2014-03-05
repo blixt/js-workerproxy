@@ -16,18 +16,21 @@
     }
 
     function createCallback(id) {
-      var fn = function () {
+      function callback() {
         var args = Array.prototype.slice.call(arguments);
         self.postMessage({callResponse: id, arguments: args});
-      };
+      }
 
-      fn.transfer = function () {
+      callback._autoDisabled = false;
+      callback.disableAuto = function () { callback._autoDisabled = true; };
+
+      callback.transfer = function () {
         var args = Array.prototype.slice.call(arguments),
             transferList = args.shift();
         self.postMessage({callResponse: id, arguments: args}, transferList);
       };
 
-      return fn;
+      return callback;
     }
 
     self.addEventListener('message', function (e) {
@@ -47,17 +50,23 @@
         }
 
         var args = message.arguments || [];
-        var callback = createCallback(callId)
+        var callback = createCallback(callId);
         args.push(callback);
 
+        var returnValue;
         if (options.catchErrors) {
           try {
-            fn.apply(functions, args);
+            returnValue = fn.apply(functions, args);
           } catch (e) {
             callback(errorObject(e));
           }
         } else {
-          fn.apply(functions, args);
+          returnValue = fn.apply(functions, args);
+        }
+
+        // If the option for it is enabled, automatically call the callback.
+        if (options.autoCallback && !callback._autoDisabled) {
+          callback(null, returnValue);
         }
       }
     });
@@ -213,6 +222,9 @@
    */
   function createWorkerProxy(workersOrFunctions, opt_options) {
     var options = {
+      // Automatically call the callback after a call if the return value is not
+      // undefined.
+      autoCallback: false,
       // Catch errors and automatically respond with an error callback. Off by
       // default since it breaks standard behavior.
       catchErrors: false,

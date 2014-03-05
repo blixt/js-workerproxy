@@ -7,11 +7,14 @@
 			var worker = new Worker('worker.js');
 
 			// The list of function names is not necessary if Proxy is supported.
-			var api = createWorkerProxy(worker, {functionNames: ['greet']});
+			var api = createWorkerProxy(worker, {functionNames: ['addToFirstIndexInBuffer']});
 
-			api.greet('World', function (err, message) {
+			var buffer = new ArrayBuffer(100);
+			api.addToFirstIndexInBuffer.transfer([buffer], buffer, 10, function (err, buffer) {
+				var array = new Uint8Array(buffer);
+
 				var p = document.createElement('p');
-				p.textContent = message;
+				p.textContent = 'Got buffer back. First value: ' + array[0];
 				document.body.appendChild(p);
 			});
 		</script>
