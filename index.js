@@ -78,11 +78,10 @@
         timers,
         nextCallId = 1,
         fakeProxy,
-        pendingCalls = 0,
         queue = [];
 
-    // Create an array of booleans for the availability of each worker.
-    var available = workers.map(function () { return true; });
+    // Create an array of number of pending tasks for each worker.
+    var pending = workers.map(function () { return 0; });
 
     // Each individual call gets a timer if timing calls.
     if (options.timeCalls) timers = {};
@@ -95,8 +94,12 @@
       });
     }
 
+    function getNumPendingCalls() {
+      return queue.length + pending.reduce(function (x, y) { return x + y; });
+    }
+
     function getHandler(_, name) {
-      if (name == 'pendingCalls') return pendingCalls;
+      if (name == 'pendingCalls') return getNumPendingCalls();
       if (cache[name]) return cache[name];
 
       var fn = cache[name] = function () {
@@ -108,10 +111,9 @@
       fn.broadcast = function () {
         var args = Array.prototype.slice.call(arguments);
         for (var i = 0; i < workers.length; i++) {
-          pendingCalls++;
           sendCall(i, name, args);
         }
-        if (fakeProxy) fakeProxy.pendingCalls = pendingCalls;
+        if (fakeProxy) fakeProxy.pendingCalls = getNumPendingCalls();
       };
 
       // Marks the objects in the first argument (array) as transferable.
@@ -125,10 +127,13 @@
     }
 
     function flushQueue() {
+      // Keep the fake proxy pending count up-to-date.
+      if (fakeProxy) fakeProxy.pendingCalls = getNumPendingCalls();
+
       if (!queue.length) return;
 
       for (var i = 0; i < workers.length; i++) {
-        if (!available[i]) continue;
+        if (pending[i]) continue;
 
         // A worker is available.
         var params = queue.shift();
@@ -139,15 +144,13 @@
     }
 
     function queueCall(name, args, opt_transferList) {
-      pendingCalls++;
-      if (fakeProxy) fakeProxy.pendingCalls = pendingCalls;
       queue.push([name, args, opt_transferList]);
       flushQueue();
     }
 
     function sendCall(workerIndex, name, args, opt_transferList) {
-      // Get the worker and mark it as unavailable.
-      available[workerIndex] = false;
+      // Get the worker and indicate that it has a pending task.
+      pending[workerIndex]++;
       var worker = workers[workerIndex];
 
       var id = nextCallId++;
@@ -176,9 +179,6 @@
       if (message.callResponse) {
         var callId = message.callResponse;
 
-        pendingCalls--;
-        if (fakeProxy) fakeProxy.pendingCalls = pendingCalls;
-
         // Call the callback registered for this call (if any).
         if (callbacks[callId]) {
           callbacks[callId].apply(null, message.arguments);
@@ -191,8 +191,8 @@
           delete timers[callId];
         }
 
-        // Make the worker available to handle more calls.
-        available[workerIndex] = true;
+        // Indicate that this task is no longer pending on the worker.
+        pending[workerIndex]--;
         flushQueue();
       } else if (message.functionNames) {
         // Received a list of available functions. Only useful for fake proxy.
